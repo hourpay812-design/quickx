@@ -4,11 +4,13 @@ SSRF protection, and clear JSON error responses.
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from typing import Callable
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import config, jobs, schemas, services
 
@@ -35,8 +37,12 @@ async def add_security_headers(request: Request, call_next: Callable) -> Respons
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    # Relax CSP slightly to allow inline styles/scripts for the simple frontend
     resp.headers["Content-Security-Policy"] = (
-        "default-src 'none'; frame-ancestors 'none'; sandbox"
+        "default-src 'self' https://aladin.u-strasbg.fr; "
+        "style-src 'self' 'unsafe-inline' https://aladin.u-strasbg.fr; "
+        "script-src 'self' 'unsafe-inline' https://aladin.u-strasbg.fr; "
+        "img-src 'self' blob: data: https://*;"
     )
     return resp
 
@@ -149,3 +155,10 @@ def search_moving_object(query: schemas.MovingObjectQuery):
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+# --- Static Files Mounting (Frontend) ---------------------------------------
+frontend_dir = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
+)
+if os.path.exists(frontend_dir):
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
