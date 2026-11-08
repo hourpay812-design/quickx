@@ -2,7 +2,8 @@
  * Client for the QuickX backend.
  */
 export class QuickXClient {
-  constructor(baseUrl = 'http://localhost:8000') {
+  constructor(baseUrl = '') {
+    // Relative URL so it automatically uses window.location origin (works under same-port serving)
     this.baseUrl = baseUrl;
   }
 
@@ -63,16 +64,22 @@ export class Viewer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.frames = [];
+    this.differenceFrames = [];
+    this.mode = 'blink';
     this.currentIdx = 0;
     this.isPlaying = false;
     this.intervalId = null;
     this.speed = 400;
   }
 
-  setFrames(frames) {
+  setFrames(frames, differenceFrames = []) {
     this.frames = frames.map(f => ({
       ...f,
       img: this.decodePng(f.png_b64)
+    }));
+    this.differenceFrames = differenceFrames.map(df => ({
+      ...df,
+      img: this.decodePng(df.png_b64)
     }));
     this.currentIdx = 0;
     this.drawCurrent();
@@ -86,10 +93,20 @@ export class Viewer {
     return img;
   }
 
+  setMode(mode) {
+    this.mode = mode;
+    this.currentIdx = 0;
+    this.drawCurrent();
+  }
+
   drawCurrent() {
-    if (!this.frames.length) return;
-    const frame = this.frames[this.currentIdx];
-    const img = frame.img;
+    const list = (this.mode === 'difference' && this.differenceFrames.length > 0)
+      ? this.differenceFrames
+      : this.frames;
+
+    if (!list.length) return;
+    const item = list[this.currentIdx];
+    const img = item.img;
 
     if (!img.complete) {
       img.onload = () => this.drawCurrent();
@@ -102,10 +119,14 @@ export class Viewer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(img, 0, 0);
 
-    // Update metadata badge
-    document.getElementById('badge-obsid').textContent = frame.obs_id;
-    document.getElementById('badge-date').textContent = new Date(frame.date_obs).toLocaleDateString();
-    document.getElementById('badge-wave').textContent = `${frame.wavelength_um} µm`;
+    // Update metadata badge safely if elements exist
+    const bObs = document.getElementById('badge-obsid');
+    const bDate = document.getElementById('badge-date');
+    const bWave = document.getElementById('badge-wave');
+
+    if (bObs) bObs.textContent = item.obs_id || (item.pair ? item.pair.join(' − ') : '');
+    if (bDate) bDate.textContent = item.date_obs ? new Date(item.date_obs).toLocaleDateString() : '';
+    if (bWave) bWave.textContent = `${item.wavelength_um} µm`;
 
     // Highlight current in list
     document.querySelectorAll('.epoch-item').forEach((el, i) => {
@@ -115,10 +136,14 @@ export class Viewer {
   }
 
   start() {
-    if (this.isPlaying || this.frames.length < 2) return;
+    const list = (this.mode === 'difference' && this.differenceFrames.length > 0)
+      ? this.differenceFrames
+      : this.frames;
+
+    if (this.isPlaying || list.length < 2) return;
     this.isPlaying = true;
     this.intervalId = setInterval(() => {
-      this.currentIdx = (this.currentIdx + 1) % this.frames.length;
+      this.currentIdx = (this.currentIdx + 1) % list.length;
       this.drawCurrent();
     }, this.speed);
   }
