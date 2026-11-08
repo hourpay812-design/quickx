@@ -120,8 +120,10 @@ header {
 
 #blink-canvas {
   max-width: 100%;
-  max-height: 100%;
+  max-height: 85vh;
   object-fit: contain;
+  transform: scale(1.5);
+  transform-origin: center;
   box-shadow: 0 0 40px rgba(0,0,0,0.8);
   border-radius: 4px;
 }
