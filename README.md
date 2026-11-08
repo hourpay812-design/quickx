@@ -1,31 +1,26 @@
 # QuickX
 
-Free public web tool to blink compare NASA SPHEREx spectral images.
+A free public web tool: pick a spot in the sky and watch how it changes across NASA SPHEREx observations. No coding or astronomy background needed.
 
 ## Features
-- Search by object name (NED) or RA/Dec coordinates.
-- Linear Variable Filter (LVF) exact per-pixel wavelength matching.
-- Blink, Flicker, and Difference image modes.
-- Guided tour of interstellar comet 3I/ATLAS.
+- **Sky Search:** Resolve object names via NED, enter coordinates, or click the map.
+- **Blink Comparator:** Flip between observations of the same sky across time.
+- **Spectral-Channel Matching:** Automatically matches observations by per-pixel LVF wavelength (`WCS-WAVE`) to prevent false motion signals caused by colour differences (Critical Science Rule #3).
+- **Difference Mode:** Subtract matched-band frames so moving objects appear as bright/dark pairs against fixed stars.
+- **Spectrum Inspector:** View the spectral energy distribution across matched bands.
+- **Solar System Overlays:** Compare predicted vs. observed positions for moving targets.
 
-## Quickstart
-
-### Backend
+## Running the Backend
 ```bash
-python3.13 -m venv .venv
+cd backend
+python -m venv .venv
 source .venv/bin/activate
-pip install -e backend/
-uvicorn backend.app.main:app --reload
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
+pip install -e .
+uvicorn backend.app.main:app --reload --port 8000
 ```
 
 ## Running Tests
 ```bash
+export PYTHONPATH=.
 pytest backend/tests/
 ```
