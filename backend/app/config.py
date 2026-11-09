@@ -47,7 +47,7 @@ MAX_REDIRECTS = 3
 MAX_RETRIES = 1
 
 MAX_CUTOUT_SIZE_DEG = 0.2
-DEFAULT_CUTOUT_SIZE_DEG = 0.02          # ~18px at 6.15"/px
+DEFAULT_CUTOUT_SIZE_DEG = 0.05          # ~30px at 6.15"/px for higher detail
 MAX_FRAMES_PER_JOB = 24
 MAX_CONCURRENT_CUTOUTS = 3              # politeness toward IRSA
 MAX_CONCURRENT_JOBS = 8

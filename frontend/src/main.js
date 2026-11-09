@@ -10,7 +10,9 @@ const state = {
     differenceFrames: [],
     spectrum: [],
     currentIdx: 0,
-    playing: false
+    playing: false,
+    color: false,
+    lastTarget: null
 };
 
 const statusBar = document.getElementById('status-bar');
@@ -24,20 +26,24 @@ async function search(name) {
     try {
         statusBar.textContent = 'Resolving name via NED...';
         const obj = await client.resolve(name);
-
-        statusBar.textContent = 'Creating job...';
-        const job = await client.createJob({
-            ra: obj.ra,
-            dec: obj.dec,
-            stretch: 'asinh'
-        });
-
-        state.jobId = job.job_id;
-        pollJob();
+        state.lastTarget = { ra: obj.ra, dec: obj.dec };
+        await startJob(obj.ra, obj.dec);
     } catch (err) {
         statusBar.textContent = `Error: ${err.message}`;
         console.error(err);
     }
+}
+
+async function startJob(ra, dec) {
+    statusBar.textContent = 'Creating job...';
+    const job = await client.createJob({
+        ra,
+        dec,
+        stretch: 'asinh',
+        color: state.color
+    });
+    state.jobId = job.job_id;
+    pollJob();
 }
 
 async function pollJob() {
@@ -58,10 +64,13 @@ async function pollJob() {
         }
 
         if (job.status === 'running' || job.status === 'pending') {
-            setTimeout(pollJob, 1000);
+            // 2s cadence: 1s polling alone saturates the per-IP token bucket
+            setTimeout(pollJob, 2000);
         }
     } catch (err) {
         statusBar.textContent = `Polling error: ${err.message}`;
+        // Transient failures (e.g. 429) must not strand the viewer mid-job
+        if (err.message !== 'Job not found') setTimeout(pollJob, 2000);
     }
 }
 
@@ -127,6 +136,19 @@ playBtn.onclick = () => {
     }
 };
 
+const colorBtn = document.getElementById('color-btn');
+colorBtn.onclick = async () => {
+    state.color = !state.color;
+    colorBtn.setAttribute('aria-pressed', String(state.color));
+    if (!state.lastTarget) return;
+    try {
+        // Cached cutouts are re-rendered server-side, so this stays fast.
+        await startJob(state.lastTarget.ra, state.lastTarget.dec);
+    } catch (err) {
+        statusBar.textContent = `Error: ${err.message}`;
+    }
+};
+
 // Mode switching
 document.querySelectorAll('.segmented-btn').forEach(btn => {
     btn.onclick = () => {
@@ -154,10 +176,14 @@ viewer.drawCurrent = () => {
                 <div class="text-cyan-300 text-[10px]">${frame.wavelength_um} µm</div>
             `;
         } else {
+            const colorNote = frame.color
+                ? '<div class="false-color-note">False colour · wavelength tint</div>'
+                : '';
             metaOverlay.innerHTML = `
                 <div class="text-cyan-400 font-mono text-[10px]">${frame.obs_id}</div>
                 <div class="text-white text-[10px]">${frame.wavelength_um} µm ± ${frame.bandwidth_um}</div>
                 <div class="text-slate-400 text-[10px]">${new Date(frame.date_obs).toLocaleString()}</div>
+                ${colorNote}
             `;
         }
     }

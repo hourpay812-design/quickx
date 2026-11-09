@@ -34,3 +34,13 @@ def test_strict_schema_validation():
     # Malicious injection in object name
     resp = client.post("/api/resolve", json={"name": "<script>alert(1)</script>"})
     assert resp.status_code == 422
+
+
+def test_job_request_color_flag():
+    from backend.app import schemas
+
+    assert schemas.JobRequest(ra=10.0, dec=20.0).color is False
+    assert schemas.JobRequest(ra=10.0, dec=20.0, color=True).color is True
+
+    resp = client.post("/api/jobs", json={"ra": 10.0, "dec": 20.0, "color": "banana"})
+    assert resp.status_code == 422

@@ -217,3 +217,36 @@ def render_png(img_uint8: np.ndarray) -> bytes:
     bio = io.BytesIO()
     im.save(bio, format="PNG", optimize=True)
     return bio.getvalue()
+
+
+# False-colour mapping across the SPHEREx D1-D6 range (0.75 - 5.0 um).
+# Shorter wavelength -> bluish, longer wavelength -> reddish. Value carries
+# the surface brightness, so the source structure stays visible.
+_WAVE_MIN_UM = 0.75
+_WAVE_MAX_UM = 5.0
+
+
+def wavelength_to_rgb(wavelength_um: float) -> tuple[float, float, float]:
+    """Map a wavelength in µm to a false-colour base tint (R,G,B in 0..1)."""
+    import colorsys
+    t = (wavelength_um - _WAVE_MIN_UM) / (_WAVE_MAX_UM - _WAVE_MIN_UM)
+    t = max(0.0, min(1.0, t))
+    # 0.66 (blue) at short wave -> 0.0 (red) at long wave
+    hue = (1.0 - t) * 0.66
+    r, g, b = colorsys.hsv_to_rgb(hue, 0.85, 1.0)
+    return (r, g, b)
+
+
+def render_png_color(img_uint8: np.ndarray, wavelength_um: float) -> bytes:
+    """Render an 8-bit science frame as a wavelength-coded false-colour RGB PNG."""
+    r, g, b = wavelength_to_rgb(wavelength_um)
+    arr = np.flipud(img_uint8)
+    norm = arr.astype(np.float32) / 255.0
+    rgb = np.zeros((*norm.shape, 3), dtype=np.uint8)
+    rgb[:, :, 0] = np.clip(norm * r * 255.0, 0, 255).astype(np.uint8)
+    rgb[:, :, 1] = np.clip(norm * g * 255.0, 0, 255).astype(np.uint8)
+    rgb[:, :, 2] = np.clip(norm * b * 255.0, 0, 255).astype(np.uint8)
+    im = Image.fromarray(rgb, mode="RGB")
+    bio = io.BytesIO()
+    im.save(bio, format="PNG", optimize=True)
+    return bio.getvalue()

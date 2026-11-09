@@ -36,3 +36,37 @@ def test_difference_frame_neutral_mid_gray():
     diff = science.compute_difference_frame(a, b)
     # Identical frames must yield uniform neutral mid-gray (128)
     assert np.all(diff == 128)
+
+
+def test_wavelength_to_rgb_tints_and_clamping():
+    short = science.wavelength_to_rgb(0.75)   # blue end of the D1-D6 range
+    long = science.wavelength_to_rgb(5.0)     # red end
+    assert short[2] > short[0] and short[2] > short[1]
+    assert long[0] > long[1] and long[0] > long[2]
+    # Out-of-range wavelengths clamp instead of extrapolating
+    assert science.wavelength_to_rgb(0.1) == short
+    assert science.wavelength_to_rgb(9.0) == long
+    for wave in (0.75, 1.5, 2.5, 3.7, 5.0):
+        assert all(0.0 <= c <= 1.0 for c in science.wavelength_to_rgb(wave))
+
+
+def test_render_png_color_preserves_structure_and_orientation():
+    import io
+    import numpy as np
+    from PIL import Image
+
+    # Vertical brightness gradient; bottom row brightest (FITS orientation)
+    img = np.tile(np.linspace(0, 255, 16, dtype=np.uint8)[:, None], (1, 16))
+    png = science.render_png_color(img, wavelength_um=2.0)
+    with Image.open(io.BytesIO(png)) as im:
+        assert im.mode == "RGB"
+        assert im.size == (16, 16)
+        arr = np.asarray(im)
+
+    # Same flip as grayscale render_png: brightest row must be at the top
+    assert arr[0].sum() > arr[-1].sum()
+    # Tint scales all channels, so brightness ordering survives
+    lum = arr.astype(np.float32).sum(axis=2)
+    assert np.all(np.diff(lum.mean(axis=1)) <= 1.0)
+    # A black pixel stays black in every channel
+    assert not arr[-1].any()

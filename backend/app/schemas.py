@@ -78,6 +78,7 @@ class JobRequest(StrictModel):
     )
     max_frames: int = Field(default=12, ge=2, le=config.MAX_FRAMES_PER_JOB)
     stretch: Stretch = "asinh"
+    color: bool = False
     collection: Optional[str] = None
 
     _detector = field_validator("detector")(SearchQuery._detector.__func__)

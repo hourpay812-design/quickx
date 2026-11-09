@@ -63,6 +63,7 @@ class Job:
     dec: float
     size_deg: float
     stretch: str
+    color: bool = False
     status: str = "pending"  # pending, running, completed, failed
     frames: list[dict] = field(default_factory=list)
     difference_frames: list[dict] = field(default_factory=list)
@@ -89,6 +90,7 @@ class JobManager:
             dec=req.dec,
             size_deg=req.size_deg,
             stretch=req.stretch,
+            color=req.color,
         )
         self.jobs[job_id] = job
         return job
@@ -128,6 +130,7 @@ class JobManager:
                         req.dec,
                         req.size_deg,
                         req.stretch,
+                        req.color,
                     )
                 if frame:
                     fetched_frames.append(frame)
@@ -202,6 +205,7 @@ class JobManager:
         dec: float,
         size_deg: float,
         stretch: str,
+        color: bool = False,
     ) -> Optional[dict]:
         obs_id = rec["obs_id"]
         ckey = cache_key("cut", obs_id, ra, dec, size_deg, stretch)
@@ -210,6 +214,16 @@ class JobManager:
             # Rehydrate raw numpy data if present in cache
             if "raw_path" in cached and os.path.exists(cached["raw_path"]):
                 cached["_raw_data"] = np.load(cached["raw_path"])
+            # Colour toggle must never re-fetch the 31-120s cutout: re-render
+            # the PNG from cached raw data instead.
+            if cached.get("color", False) != color and cached.get("_raw_data") is not None:
+                stretched = science.apply_stretch(cached["_raw_data"], stretch=stretch)
+                png_bytes = (
+                    science.render_png_color(stretched, cached["wavelength_um"])
+                    if color else science.render_png(stretched)
+                )
+                cached["png_b64"] = png_bytes.hex()
+                cached["color"] = color
             return cached
 
         try:
@@ -227,7 +241,10 @@ class JobManager:
                 date_obs = hdr.get("DATE-OBS") or ""
 
             stretched = science.apply_stretch(image_arr, stretch=stretch)
-            png_bytes = science.render_png(stretched)
+            png_bytes = (
+                science.render_png_color(stretched, sol.wavelength_um)
+                if color else science.render_png(stretched)
+            )
 
             raw_file = os.path.join(config.CACHE_DIR, f"{ckey}.npy")
             np.save(raw_file, image_arr)
@@ -243,6 +260,7 @@ class JobManager:
                 "det_x": round(sol.det_x, 1),
                 "det_y": round(sol.det_y, 1),
                 "png_b64": png_bytes.hex(),
+                "color": color,
                 "raw_path": raw_file,
                 "_raw_data": image_arr,
                 "attribution": config.ATTRIBUTION,
