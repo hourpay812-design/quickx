@@ -42,6 +42,15 @@
   padding: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
@@ -218,13 +227,12 @@ input[type="text"]:focus {
   outline: 2px solid var(--accent-color);
 }
 
-/* Metadata Overlays */
+/* Metadata Overlays (opaque: keeps the on-screen glass budget at <=4 layers) */
 .frame-meta-badge {
   position: absolute;
   top: 16px;
   left: 16px;
   background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(8px);
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -232,13 +240,364 @@ input[type="text"]:focus {
   line-height: 1.4;
 }
 
+/* Header layout */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#status-bar {
+  flex: 1;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-only {
+  display: none;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.coord-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.speed-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+#floating-controls select {
+  width: auto;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Badge lines */
+.badge-line {
+  font-size: 0.72rem;
+}
+
+.badge-obsid {
+  color: var(--accent-color);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.badge-muted {
+  color: var(--text-muted);
+}
+
+/* Epoch list */
+#obs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.epoch-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: rgba(255,255,255,0.06);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.epoch-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.epoch-item.epoch-active {
+  background: rgba(56,189,248,0.12);
+  border-color: var(--accent-color);
+}
+
+.epoch-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epoch-date {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+
+.epoch-wave {
+  color: #fcd34d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: right;
+}
+
+.epoch-det {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  text-align: right;
+}
+
+/* Sky map */
+#map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#aladin-lite {
+  height: 220px;
+  background: #000;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#map-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0,0,0,0.35);
+  border: 1px dashed rgba(255,255,255,0.25);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Tour banner + timeline bar: opaque surfaces (glass budget) */
+#tour-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, 90%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #10151f;
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  font-size: 0.85rem;
+  z-index: 6;
+}
+
+#tour-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+#timeline-bar {
+  position: absolute;
+  bottom: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 85%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #10151f;
+  border: var(--glass-border);
+  border-radius: 24px;
+  z-index: 5;
+}
+
+#timeline-slider {
+  flex: 1;
+  accent-color: var(--accent-color);
+}
+
+#timeline-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Inspector details + moving-object panel */
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  padding: 2px 0;
+}
+
+.detail-row span {
+  color: var(--text-muted);
+}
+
+.detail-note {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+.attribution {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+#moving-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+#moving-panel h4, #frame-wcs h4 {
+  font-size: 0.85rem;
+  color: var(--accent-color);
+}
+
+.moving-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.68rem;
+}
+
+.moving-table th, .moving-table td {
+  text-align: left;
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.moving-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Beginner/Expert: expert-only controls hidden unless body.expert */
+body:not(.expert) .expert-only {
+  display: none !important;
+}
+
+/* Low-data mode: opaque surfaces, no blur, no motion */
+body.low-data {
+  --glass-bg: #151a23;
+  --glass-blur: none;
+  --glass-shadow: none;
+}
+
+body.low-data .segmented-btn {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Opaque fallback when backdrop-filter is unsupported */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass-bg: #161b26;
+    --glass-blur: none;
+  }
+}
+
+/* Windows High Contrast / forced colors */
+@media (forced-colors: active) {
+  header, .glass-panel, #floating-controls, .glass-btn,
+  .segmented-control, #tour-banner, #timeline-bar, .frame-meta-badge {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .segmented-btn.active, .glass-btn[aria-pressed="true"], .epoch-item.epoch-active {
+    background: Highlight;
+    color: HighlightText;
+  }
+  #blink-canvas {
+    forced-color-adjust: none;
+  }
+}
+
 /* Responsive phone rules */
 @media (max-width: 768px) {
   #app-container {
     grid-template-columns: 1fr;
-    grid-template-rows: 50px 1fr 60px;
+    grid-template-rows: 50px 1fr;
   }
   .sidebar, .inspector {
     display: none;
+  }
+  .phone-only {
+    display: inline-flex;
+  }
+  #viewer-container {
+    grid-column: 1;
+  }
+  body.sidebar-open .sidebar {
+    display: flex;
+    position: fixed;
+    top: 50px;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 85vw);
+    margin: 0;
+    border-radius: 0;
+    background: #10151f;
+    z-index: 20;
+  }
+  #blink-canvas {
+    width: 90vw;
+    height: auto;
+    aspect-ratio: 1;
+  }
+  #floating-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 92vw;
+    bottom: 12px;
+    border-radius: 20px;
+  }
+  #timeline-bar {
+    bottom: 120px;
+  }
+  .header-actions .glass-btn {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+  #status-bar {
+    font-size: 0.62rem;
+    padding: 0 6px;
   }
 }

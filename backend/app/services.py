@@ -6,9 +6,11 @@ from __future__ import annotations
 import io
 import json
 import re
+import time
 import urllib.parse
 from typing import Optional
 from astropy.io import fits
+import numpy as np
 
 from . import config, fetcher, science
 
@@ -138,6 +140,17 @@ def fetch_cutout_fits(
     )
 
 
+# HORIZONS rejects the informal name; see docs/service-findings.md §7.
+MOST_ALIASES = {"3i/atlas": "3I", "3i": "3I", "atlas (c/2025 n1)": "C/2025 N1"}
+
+_MOST_CACHE: dict[str, tuple[float, list[dict]]] = {}
+_MOST_CACHE_TTL = 3600.0
+
+
+def most_designation(name: str) -> str:
+    return MOST_ALIASES.get(name.strip().lower(), name.strip())
+
+
 def query_jpl_orbit(designation: str) -> dict:
     """Query JPL Small-Body Database for real orbital elements."""
     data = fetcher.safe_fetch(
@@ -147,7 +160,15 @@ def query_jpl_orbit(designation: str) -> dict:
     )
     doc = json.loads(data.decode("utf-8"))
     orbit = doc.get("orbit") or {}
-    elems = {e.get("name"): float(e.get("value", 0)) for e in orbit.get("elements", [])}
+    elems = {}
+    for e in orbit.get("elements", []):
+        name = e.get("name")
+        val = e.get("value")
+        if name and val is not None:
+            try:
+                elems[name] = float(val)
+            except (ValueError, TypeError):
+                pass
     object_info = doc.get("object") or {}
     return {
         "designation": designation,
@@ -168,6 +189,10 @@ def query_most_moving_object(designation: str) -> list[dict]:
     Uses bare catalog=spherex and reads imgframes_matched_final_table.tbl
     from the returned workspace URL (docs/service-findings.md §7).
     """
+    designation = most_designation(designation)
+    hit = _MOST_CACHE.get(designation)
+    if hit and time.time() - hit[0] < _MOST_CACHE_TTL:
+        return hit[1]
     # 1. Submit query
     data = fetcher.safe_fetch(
         config.IRSA_MOST,
@@ -188,30 +213,40 @@ def query_most_moving_object(designation: str) -> list[dict]:
     ws_url = ws_match.group(0)
     matched_table_url = f"{ws_url}/imgframes_matched_final_table.tbl"
 
-    # 2. Fetch matched final table
+    # 2. Fetch matched final table and parse via Astropy IPAC reader
     tbl_bytes = fetcher.safe_fetch(matched_table_url, timeout=config.MOST_TIMEOUT)
-    tbl_text = tbl_bytes.decode("utf-8", "replace")
+    from astropy.io import ascii
+    tbl = ascii.read(io.BytesIO(tbl_bytes), format="ipac")
 
     rows = []
-    col_names = []
-    for line in tbl_text.splitlines():
-        if line.startswith("\\"):
-            continue
-        if line.startswith("|"):
-            if not col_names:
-                col_names = [c.strip() for c in line.split("|") if c.strip()]
-            continue
-        parts = [p.strip() for p in line.split() if p.strip()]
-        if len(parts) >= len(col_names) and col_names:
-            row = dict(zip(col_names, parts))
-            rows.append({
-                "obs_id": row.get("observationid"),
-                "detector": row.get("productid"),
-                "mjd": float(row["mjd_start"]) if row.get("mjd_start") else None,
-                "ra_predicted": float(row["ra_obj"]) if row.get("ra_obj") else None,
-                "dec_predicted": float(row["dec_obj"]) if row.get("dec_obj") else None,
-                "vmag": float(row["vmag"]) if row.get("vmag") else None,
-                "geo_dist_au": float(row["geo_dist"]) if row.get("geo_dist") else None,
-                "sun_dist_au": float(row["sun_dist"]) if row.get("sun_dist") else None,
-            })
+    for r in tbl:
+        def safe_float(val):
+            if val is None:
+                return None
+            try:
+                f = float(val)
+                return f if np.isfinite(f) else None
+            except (ValueError, TypeError):
+                return None
+
+        obs_id = str(r["observationid"]) if "observationid" in tbl.colnames and r["observationid"] is not None else None
+        detector = str(r["productid"]) if "productid" in tbl.colnames and r["productid"] is not None else None
+        mjd = safe_float(r["mjd_start"] if "mjd_start" in tbl.colnames else None)
+        ra_pred = safe_float(r["ra_obj"] if "ra_obj" in tbl.colnames else None)
+        dec_pred = safe_float(r["dec_obj"] if "dec_obj" in tbl.colnames else None)
+        vmag = safe_float(r["vmag"] if "vmag" in tbl.colnames else None)
+        geo_dist = safe_float(r["geo_dist"] if "geo_dist" in tbl.colnames else None)
+        sun_dist = safe_float(r["sun_dist"] if "sun_dist" in tbl.colnames else None)
+
+        rows.append({
+            "obs_id": obs_id,
+            "detector": detector,
+            "mjd": mjd,
+            "ra_predicted": ra_pred,
+            "dec_predicted": dec_pred,
+            "vmag": vmag,
+            "geo_dist_au": geo_dist,
+            "sun_dist_au": sun_dist,
+        })
+    _MOST_CACHE[designation] = (time.time(), rows)
     return rows

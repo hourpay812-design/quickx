@@ -70,3 +70,33 @@ def test_render_png_color_preserves_structure_and_orientation():
     assert np.all(np.diff(lum.mean(axis=1)) <= 1.0)
     # A black pixel stays black in every channel
     assert not arr[-1].any()
+
+
+def test_sky_to_pixel_and_header_helpers():
+    from astropy.io import fits
+
+    hdr = fits.Header()
+    hdr["CRPIX1"] = 8.0
+    hdr["CRPIX2"] = 8.0
+    hdr["CRVAL1"] = 10.0
+    hdr["CRVAL2"] = 20.0
+    hdr["CD1_1"] = -0.001
+    hdr["CD1_2"] = 0.0
+    hdr["CD2_1"] = 0.0
+    hdr["CD2_2"] = 0.001
+    hdr["CTYPE1"] = "RA---TAN"
+    hdr["CTYPE2"] = "DEC--TAN"
+
+    # Reference pixel maps to CRPIX minus the 1-based offset
+    x, y = science.sky_to_pixel(hdr, 10.0, 20.0)
+    assert abs(x - 7.0) < 1e-6
+    assert abs(y - 7.0) < 1e-6
+
+    summary = science.wcs_summary(hdr)
+    assert summary["CRVAL1"] == 10.0
+    assert summary["CTYPE1"] == "RA---TAN"
+
+    hdr["UNDEF"] = None  # Undefined card must not reach the JSON cache
+    scalar = science.scalar_header(hdr)
+    assert "UNDEF" not in scalar
+    assert scalar["CRVAL1"] == 10.0

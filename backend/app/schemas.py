@@ -79,10 +79,20 @@ class JobRequest(StrictModel):
     max_frames: int = Field(default=12, ge=2, le=config.MAX_FRAMES_PER_JOB)
     stretch: Stretch = "asinh"
     color: bool = False
+    moving_object: Optional[str] = Field(default=None, max_length=config.MAX_OBJECT_NAME_LEN)
     collection: Optional[str] = None
 
     _detector = field_validator("detector")(SearchQuery._detector.__func__)
     _collection = field_validator("collection")(SearchQuery._collection.__func__)
+
+    @field_validator("moving_object")
+    @classmethod
+    def _moving_charset(cls, v):
+        if v is None:
+            return v
+        if not OBJECT_NAME_RE.match(v):
+            raise ValueError("unsupported characters in object name")
+        return v
 
 
 class MovingObjectQuery(StrictModel):

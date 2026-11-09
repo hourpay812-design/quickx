@@ -117,6 +117,18 @@ class JobManager:
 
             job.total = min(len(records), req.max_frames)
 
+            # Predicted ephemeris positions per frame for the moving-object overlay
+            pred_by_obs = {}
+            if req.moving_object:
+                matches = await asyncio.to_thread(
+                    services.query_most_moving_object, req.moving_object
+                )
+                pred_by_obs = {
+                    m["obs_id"]: (m["ra_predicted"], m["dec_predicted"])
+                    for m in matches
+                    if m.get("ra_predicted") is not None and m.get("dec_predicted") is not None
+                }
+
             # 2. Fetch cutouts under semaphore (politeness to IRSA)
             fetched_frames = []
             for rec in records:
@@ -131,6 +143,7 @@ class JobManager:
                         req.size_deg,
                         req.stretch,
                         req.color,
+                        pred_by_obs.get(rec["obs_id"]),
                     )
                 if frame:
                     fetched_frames.append(frame)
@@ -206,6 +219,7 @@ class JobManager:
         size_deg: float,
         stretch: str,
         color: bool = False,
+        pred: Optional[tuple] = None,
     ) -> Optional[dict]:
         obs_id = rec["obs_id"]
         ckey = cache_key("cut", obs_id, ra, dec, size_deg, stretch)
@@ -224,6 +238,8 @@ class JobManager:
                 )
                 cached["png_b64"] = png_bytes.hex()
                 cached["color"] = color
+            if pred and cached.get("overlay") is None and "wcs_header" in cached:
+                cached["overlay"] = self._overlay_from_header(cached["wcs_header"], pred)
             return cached
 
         try:
@@ -239,6 +255,9 @@ class JobManager:
                 image_arr = hdul["IMAGE"].data.astype(np.float32)
                 hdr = hdul["IMAGE"].header
                 date_obs = hdr.get("DATE-OBS") or ""
+                wcs_header = science.scalar_header(hdr)
+                wcs_info = science.wcs_summary(hdr)
+                overlay = self._overlay_from_header(hdr, pred) if pred else None
 
             stretched = science.apply_stretch(image_arr, stretch=stretch)
             png_bytes = (
@@ -261,6 +280,9 @@ class JobManager:
                 "det_y": round(sol.det_y, 1),
                 "png_b64": png_bytes.hex(),
                 "color": color,
+                "wcs": wcs_info,
+                "wcs_header": wcs_header,
+                "overlay": overlay,
                 "raw_path": raw_file,
                 "_raw_data": image_arr,
                 "attribution": config.ATTRIBUTION,
@@ -269,6 +291,16 @@ class JobManager:
             return result
         except Exception:
             return None
+
+    @staticmethod
+    def _overlay_from_header(header, pred: tuple) -> dict:
+        if not isinstance(header, fits.Header):
+            hdr = fits.Header()
+            for k, v in header.items():
+                hdr[k] = v
+            header = hdr
+        x, y = science.sky_to_pixel(header, pred[0], pred[1])
+        return {"ra": pred[0], "dec": pred[1], "x": round(x, 2), "y": round(y, 2)}
 
 
 JOB_MANAGER = JobManager()

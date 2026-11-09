@@ -219,6 +219,30 @@ def render_png(img_uint8: np.ndarray) -> bytes:
     return bio.getvalue()
 
 
+def sky_to_pixel(header: fits.Header, ra: float, dec: float) -> Tuple[float, float]:
+    """Project a sky position into cutout pixel space (0-based, FITS orientation)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wcs = WCS(header)
+        xy = wcs.all_world2pix([[ra, dec]], 0)[0]
+    return float(xy[0]), float(xy[1])
+
+
+def wcs_summary(header: fits.Header) -> dict:
+    """Compact celestial WCS for the expert inspector."""
+    keys = ("CRPIX1", "CRPIX2", "CRVAL1", "CRVAL2", "CD1_1", "CD1_2", "CD2_1", "CD2_2", "CTYPE1", "CTYPE2")
+    return {k: header[k] for k in keys if k in header}
+
+
+def scalar_header(header: fits.Header) -> dict:
+    """JSON-safe scalar cards only, for re-projecting overlays from cache."""
+    out = {}
+    for card in header.cards:
+        if isinstance(card.value, (int, float, str, bool)):
+            out[card.keyword] = card.value
+    return out
+
+
 # False-colour mapping across the SPHEREx D1-D6 range (0.75 - 5.0 um).
 # Shorter wavelength -> bluish, longer wavelength -> reddish. Value carries
 # the surface brightness, so the source structure stays visible.

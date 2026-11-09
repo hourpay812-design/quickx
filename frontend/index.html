@@ -13,39 +13,95 @@
                 <span>QuickX</span>
                 <span class="logo-badge">Beta</span>
             </div>
-            <div id="status-bar"></div>
+            <div id="status-bar" role="status" aria-live="polite"></div>
+            <div class="header-actions">
+                <button class="glass-btn phone-only" id="sidebar-btn" aria-pressed="false"
+                        title="Show search panel">Search</button>
+                <button class="glass-btn" id="expert-btn" aria-pressed="false"
+                        title="Show expert controls and metadata">Expert</button>
+                <button class="glass-btn" id="low-data-btn" aria-pressed="false"
+                        title="Fewer frames and opaque surfaces">Low data</button>
+                <button class="glass-btn" id="share-btn" title="Copy a shareable link to this view">Share</button>
+            </div>
         </header>
 
-        <aside class="glass-panel sidebar">
+        <aside class="glass-panel sidebar" id="sidebar">
             <h3>Explore</h3>
+            <label class="field-label" for="obj-search">Target name</label>
             <input type="text" id="obj-search" placeholder="Enter target (e.g. M51)">
             <button class="glass-btn glass-btn-prominent" id="search-btn">Search</button>
-            <div id="obs-list"></div>
+            <div class="expert-only coord-row">
+                <div>
+                    <label class="field-label" for="ra-input">RA (deg)</label>
+                    <input type="text" id="ra-input" inputmode="decimal" placeholder="0..360">
+                </div>
+                <div>
+                    <label class="field-label" for="dec-input">Dec (deg)</label>
+                    <input type="text" id="dec-input" inputmode="decimal" placeholder="-90..90">
+                </div>
+            </div>
+            <button class="glass-btn expert-only" id="coord-btn">Go to coordinates</button>
+            <div id="map-wrap">
+                <div id="aladin-lite" aria-label="Sky map: click to pick a target"></div>
+                <div id="map-fallback" hidden>
+                    <p>Sky map unavailable (CDS service unreachable). Use name or coordinates above.</p>
+                    <button class="glass-btn" id="map-retry-btn">Retry map</button>
+                </div>
+            </div>
+            <button class="glass-btn" id="tour-btn" title="Guided tour of the interstellar comet 3I/ATLAS">3I/ATLAS tour</button>
+            <button class="glass-btn" id="moving-btn" aria-pressed="false"
+                    title="Overlay predicted positions for a moving target">Moving overlay</button>
+            <div id="obs-list" aria-label="Matched epochs"></div>
         </aside>
 
         <main id="viewer-container">
-            <canvas id="blink-canvas"></canvas>
+            <canvas id="blink-canvas" role="img" aria-label="No frames loaded"></canvas>
             <div id="meta-overlay" class="frame-meta-badge">
-                <div id="badge-obsid" class="text-cyan-400 font-mono text-[10px]"></div>
-                <div id="badge-date" class="text-white text-[10px]"></div>
-                <div id="badge-wave" class="text-slate-400 text-[10px]"></div>
+                <div id="badge-obsid" class="badge-line badge-obsid"></div>
+                <div id="badge-date" class="badge-line"></div>
+                <div id="badge-wave" class="badge-line badge-muted"></div>
+            </div>
+            <div id="tour-banner" hidden>
+                <span id="tour-text"></span>
+                <button class="glass-btn" id="tour-next-btn">Next</button>
+                <button class="glass-btn" id="tour-exit-btn">Exit</button>
             </div>
             <div id="floating-controls">
-                <div class="segmented-control" id="mode-switcher">
+                <div class="segmented-control" id="mode-switcher" role="group" aria-label="View mode">
                     <button class="segmented-btn active" data-mode="blink">Blink</button>
                     <button class="segmented-btn" data-mode="flicker">Flicker</button>
+                    <button class="segmented-btn" data-mode="timeline">Timeline</button>
                     <button class="segmented-btn" data-mode="difference">Diff</button>
                 </div>
                 <button class="glass-btn" id="play-btn">Play</button>
                 <button class="glass-btn" id="color-btn" aria-pressed="false"
                         title="Tint each frame by its LVF wavelength (false colour)">Color</button>
+                <label class="expert-only speed-label" for="speed-select">Speed</label>
+                <select id="speed-select" class="expert-only" aria-label="Blink speed">
+                    <option value="200">Fast</option>
+                    <option value="400" selected>Normal</option>
+                    <option value="800">Slow</option>
+                    <option value="1500">Very slow</option>
+                </select>
+                <label class="expert-only speed-label" for="stretch-select">Stretch</label>
+                <select id="stretch-select" class="expert-only" aria-label="Contrast stretch">
+                    <option value="asinh" selected>Asinh</option>
+                    <option value="log">Log</option>
+                    <option value="linear">Linear</option>
+                </select>
+            </div>
+            <div id="timeline-bar" hidden>
+                <input type="range" id="timeline-slider" min="0" max="0" step="1" value="0"
+                       aria-label="Scrub through epochs">
+                <span id="timeline-label"></span>
             </div>
         </main>
 
         <aside class="glass-panel inspector">
             <h3>Inspector</h3>
             <div id="frame-details"></div>
-            <div id="spectrum-plot"></div>
+            <div id="spectrum-plot" aria-label="Spectral energy distribution"></div>
+            <div id="moving-panel" hidden></div>
         </aside>
     </div>
     <script type="module" src="/src/main.js"></script>

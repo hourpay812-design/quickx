@@ -39,9 +39,10 @@ async def add_security_headers(request: Request, call_next: Callable) -> Respons
     resp.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     # Relax CSP slightly to allow inline styles/scripts for the simple frontend
     resp.headers["Content-Security-Policy"] = (
-        "default-src 'self' https://aladin.u-strasbg.fr; "
-        "style-src 'self' 'unsafe-inline' https://aladin.u-strasbg.fr; "
-        "script-src 'self' 'unsafe-inline' https://aladin.u-strasbg.fr; "
+        "default-src 'self' https://*.u-strasbg.fr; "
+        "style-src 'self' 'unsafe-inline' https://*.u-strasbg.fr; "
+        "script-src 'self' 'unsafe-inline' https://*.u-strasbg.fr; "
+        "connect-src 'self' https://*.u-strasbg.fr https://aladin.u-strasbg.fr https://irsa.ipac.caltech.edu; "
         "img-src 'self' blob: data: https://*;"
     )
     return resp

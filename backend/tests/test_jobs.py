@@ -52,3 +52,34 @@ def test_color_toggle_rerenders_from_cache_without_refetch(tmp_path, monkeypatch
     back = mgr._fetch_and_process_frame(rec, 10.0, 20.0, 0.05, "asinh", color=False)
     assert back["color"] is False
     assert back["png_b64"] == gray_png.hex()
+
+
+def test_overlay_added_to_cached_frame_without_refetch(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CACHE_DIR", str(tmp_path))
+    hdr = {
+        "CRPIX1": 8.0, "CRPIX2": 8.0, "CRVAL1": 10.0, "CRVAL2": 20.0,
+        "CD1_1": -0.001, "CD1_2": 0.0, "CD2_1": 0.0, "CD2_2": 0.001,
+        "CTYPE1": "RA---TAN", "CTYPE2": "DEC--TAN",
+    }
+    rec = {"obs_id": "obs_overlay", "mjd": 60000.0}
+    ckey = jobs.cache_key("cut", rec["obs_id"], 10.0, 20.0, 0.05, "asinh")
+    jobs.set_cached(ckey, {
+        "obs_id": rec["obs_id"],
+        "wavelength_um": 2.0,
+        "color": False,
+        "wcs_header": hdr,
+    })
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("overlay on a cached frame must not re-fetch")
+
+    monkeypatch.setattr(jobs.services, "resolve_datalink_cutout_path", no_network)
+    monkeypatch.setattr(jobs.services, "fetch_cutout_fits", no_network)
+
+    mgr = jobs.JobManager()
+    frame = mgr._fetch_and_process_frame(
+        rec, 10.0, 20.0, 0.05, "asinh", color=False, pred=(10.0, 20.0)
+    )
+    assert frame["overlay"]["x"] == 7.0
+    assert frame["overlay"]["y"] == 7.0
+    assert frame["overlay"]["ra"] == 10.0
