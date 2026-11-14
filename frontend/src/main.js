@@ -1,4 +1,4 @@
-import { QuickXClient, Viewer } from './app.js';
+00import { QuickXClient, Viewer } from './app.js';
 import { renderSpectrum } from './viz.js';
 
 const client = new QuickXClient();
@@ -453,61 +453,89 @@ $('tour-exit-btn').onclick = exitTour;
 
 // --- Aladin Lite sky map (graceful fallback: CDS may be unreachable) -----------
 
-const ALADIN_URL = 'https://aladin.u-strasbg.fr/AladinLite/api/v3/latest/aladin.js';
-let aladin = null;
-let mapState = 'idle';
+async function initSkyMap() {
+    setStatus('Initializing sky map...');
+    if (mapFallback) mapFallback.hidden = true;
 
-function initMap() {
-    if (aladin || mapState === 'loading') return;
-    mapState = 'loading';
-    const fail = () => {
-        mapState = 'failed';
-        $('aladin-lite').hidden = true;
-        $('map-fallback').hidden = false;
-    };
-    const create = () => {
-        try {
-            aladin = window.A.aladin('#aladin-lite', {
-                survey: 'P/2MASS/color',
-                fov: 0.3,
-                target: 'M51',
-                showReticle: true,
-            });
-            aladin.on('click', () => {
-                const [ra, dec] = aladin.getRaDec();
-                state.targetName = null;
-                objSearch.value = '';
-                startJob(ra, dec);
-            });
-            mapState = 'ready';
-        } catch {
-            fail();
+    try {
+        if (typeof A === 'undefined') {
+            throw new Error('Aladin script not loaded');
         }
-    };
-    if (window.A) {
-        create();
-        return;
+
+        // Wait for Aladin v3 WASM/engine to be ready
+        await A.init;
+
+        mapContainer.innerHTML = '';
+        aladin = A.aladin('#aladin-lite', {
+            survey: 'P/DSS2/color',
+            fov: 0.4,
+            target: 'M51',
+            showReticle: true,
+            showZoomControl: true,
+            showFullscreenControl: false,
+            showLayersControl: false,
+            showGotoControl: false
+        });
+
+        // Allow clicking anywhere on the sky map to select coordinates
+        aladin.on('click', (object) => {
+            if (object && typeof object.ra === 'number' && typeof object.dec === 'number') {
+                updateTargetDisplay('Custom Sky Position', object.ra, object.dec);
+            }
+        });
+
+        // Load initial M51 metadata
+        updateTargetDisplay('M51 (Whirlpool Galaxy)', 202.4696, 47.1952);
+        setStatus('Sky map ready');
+    } catch (err) {
+        console.error('Sky map failed to initialize:', err);
+        if (mapFallback) mapFallback.hidden = false;
+        setStatus('Sky map offline — fallback mode active');
     }
-    const timer = setTimeout(() => { if (mapState === 'loading') fail(); }, 10000);
-    const s = document.createElement('script');
-    s.src = ALADIN_URL;
-    s.onload = () => {
-        clearTimeout(timer);
-        if (mapState === 'loading') create();
-    };
-    s.onerror = () => {
-        clearTimeout(timer);
-        fail();
-    };
-    document.head.appendChild(s);
 }
 
-$('map-retry-btn').onclick = () => {
-    $('map-fallback').hidden = true;
-    $('aladin-lite').hidden = false;
-    mapState = 'idle';
-    initMap();
-};
+// 2. Resolve Target Name (e.g., "M51", "Orion", "3I/ATLAS") via CDS Sesame API
+async function resolveAndGoTo(targetName) {
+    if (!targetName) return;
+    setStatus(`Resolving "${targetName}"...`);
+
+    try {
+        // Query CDS Sesame JSON resolver directly so search works even if map fails
+        const response = await fetch(`https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oI/A?${encodeURIComponent(targetName)}`);
+        const text = await response.text();
+        
+        // Parse J2000 decimal degrees from Sesame response (%J RA DEC)
+        const match = text.match(/%J\s+([0-9.+-]+)\s+([0-9.+-]+)/);
+        
+        if (match) {
+            const ra = parseFloat(match[1]);
+            const dec = parseFloat(match[2]);
+
+            if (aladin) {
+                aladin.gotoRaDec(ra, dec);
+            }
+
+            updateTargetDisplay(targetName.toUpperCase(), ra, dec);
+            setStatus(`Loaded ${targetName.toUpperCase()}`);
+        } else {
+            // Fallback to Aladin's internal resolver if regex didn't match
+            if (aladin) {
+                aladin.gotoObject(targetName, {
+                    success: (pos) => {
+                        updateTargetDisplay(targetName.toUpperCase(), pos.ra, pos.dec);
+                        setStatus(`Loaded ${targetName.toUpperCase()}`);
+                    },
+                    error: () => setStatus(`Target "${targetName}" not found`)
+                });
+            } else {
+                setStatus(`Target "${targetName}" not found`);
+            }
+        }
+    } catch (err) {
+        console.error('Target lookup failed:', err);
+        setStatus('Error resolving target name');
+    }
+}
 
 // --- Controls ----------------------------------------------------------------
 
@@ -517,7 +545,7 @@ $('search-btn').onclick = () => {
 };
 objSearch.onkeydown = (e) => {
     if (e.key === 'Enter') {
-        const name = objSearch.value.trim();
+        const name = objSearch.value.trim()0;
         if (name) search(name);
     }
 };
