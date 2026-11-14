@@ -1,3 +1,6 @@
+Here is a professional, NASA-inspired stylesheet (`/styles/main.css`) designed for scientific telemetry and astronomical data viewing. It uses a precise, low-glare dark mode palette modeled after modern observatory tools (like Aladin Lite, STScI, and IPAC portals) with crisp monospace coordinates, structured panels, and clean scientific typography instead of generic neon effects.
+
+```css
 /* --- Root Variables & Theme Tokens --- */
 :root {
     --bg-deep: #07090e;
@@ -394,3 +397,5 @@ input[type="text"]:focus, select:focus {
         display: inline-flex;
     }
 }
+
+```
